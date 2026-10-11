@@ -8,7 +8,7 @@ user-invocable: false
 
 # Code quality report conventions
 
-This directory holds one file, [`report-conventions.md`](report-conventions.md),
+This skill's payload is [`report-conventions.md`](report-conventions.md),
 that the review skills in this collection read instead of each repeating
 it. It is packaged as its own skill so that it can be installed, pinned,
 and versioned on its own:

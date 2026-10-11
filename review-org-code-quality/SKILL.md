@@ -17,16 +17,16 @@ root cause.
 
 ## Relationship to `review-repo-code-quality`
 
-This skill builds on the single-repository `review-repo-code-quality` skill
-and the shared `code-quality-report-conventions` skill, and expects both installed
-alongside (in APM, select all three; in a `con/skills` checkout they are
+This skill is the breadth pass; `review-repo-code-quality` is the depth
+pass. It expects the shared `code-quality-report-conventions` skill installed
+alongside, and `review-repo-code-quality` when Phase 4's depth reviews are
+wanted (in APM, select all three; in a `con/skills` checkout they are
 sibling directories). Two things are delegated rather than repeated here:
 
-- **Per-repository scanning (Phase 2)** runs `review-repo-code-quality` on each
-  repository in its **Breadth mode** (defined in that skill: no inputs
-  prompt, no per-repo report, no changes, no jscpd; returns
-  `{repo}@{short SHA}`, baseline status, and `DC` / `DUP` / `NV`
-  findings) and feeds the results into this skill's health matrix.
+- **Depth reviews (Phase 4)** run `review-repo-code-quality` *in full*, one
+  report per repository, on the few repositories the graph and matrix
+  flag as most critical. The org report links those reports; it does not
+  repeat their findings. Phases 0–3 do not run the repo skill at all.
 - **Report conventions** — where the report goes for a multi-repository
   review, the provenance stamp recording which version of the skill
   produced it, evidence rules, security-sensitive findings, re-review of
@@ -42,7 +42,7 @@ sibling directories). Two things are delegated rather than repeated here:
 A set of repositories that (a) follow a common template or style and
 (b) are connected via shared data, schemas, libraries, or orchestration.
 Works for a handful of pipelines or a few dozen; beyond that, sample the
-per-repository scan and say so in Method & limits. For a single
+per-repository scoring and say so in Method & limits. For a single
 repository, use `review-repo-code-quality` directly.
 
 ## Core prompt
@@ -78,25 +78,26 @@ Before judging anything, define what "correct" looks like in this ecosystem.
 
 ## Phase 1 — Map the graph
 
-- Build an inventory: pipeline name, owner/team, orchestrator, last meaningful commit, shared-lib version, upstream inputs, downstream consumers, SLA/criticality if known.
+- Build an inventory: pipeline name, owner/team, orchestrator, last meaningful commit, shared-lib version, upstream inputs, downstream consumers, SLA/criticality if known. Start from the `scan-projects` skill (repo list, language, license, last commit as `projects.tsv`) when the repositories are checked out side by side, and `github-project-status` for commit/release/PR activity per repository; add the pipeline-specific columns by hand.
 - Derive edges from: orchestrator dependencies, table/topic/bucket reads and writes, import graphs, cross-repo API calls, machine-readable declarations (`cache.toml`, `dbt` sources, …) when they exist — prefer declared edges to guessed ones and say which you used.
 - Compute for each node: **fan-in, fan-out, depth**, and whether it's on the path to anything business-critical.
 - Flag: orphaned pipelines (no consumers, still running), hub nodes (high fan-out), long chains (depth well above the ecosystem median; state the threshold you used), cycles. Distinguish an orphan from a *product* — a leaf with external consumers is not a candidate for retirement.
 
 ## Phase 2 — Per-pipeline scan (breadth)
 
-Run `review-repo-code-quality` in Breadth mode on every repository (use
-`Agent` to parallelize when there are many), then score each repository
-0–3 per dimension below (0 = absent/broken, 3 = works and is covered by
-tests or gates). Breadth mode feeds the **Dead code**, **Testing**
-(baseline status), and duplication inputs; the other dimensions are
-**scored from configuration and workflows directly** (orchestrator
-definitions, schema declarations, CI, IAM/secrets wiring), not from the
-repo skill. Record **template conformance separately from correctness**,
-so a pipeline that faithfully copies a flawed template is not scored 3 on
-everything. Keep the per-repository evidence in an **evidence appendix**
-of the report (or a sibling `…-evidence/<repo>.md` per repository when it
-is long); each matrix cell links to it.
+Score each repository 0–3 per dimension below (0 = absent/broken, 3 =
+works and is covered by tests or gates), **reading only**: every
+dimension is scored from configuration, workflows, declarations, and
+source (orchestrator definitions, schema declarations, CI, IAM/secrets
+wiring, test layout, dead-code tool output). Nothing in this phase
+executes the reviewed repositories' code; a per-repository test baseline
+belongs to the depth reviews in Phase 4. Use `Agent` to parallelize when
+there are many repositories. Record **template conformance separately
+from correctness**, so a pipeline that faithfully copies a flawed
+template is not scored 3 on everything. Keep the per-repository evidence
+(`{repo}@{short SHA}` and the facts each cell was scored from) in the
+report's **evidence appendix** (or a sibling `…-evidence/<repo>.md` per
+repository when it is long); each matrix cell links to it.
 
 | Dimension | What to check |
 |---|---|
@@ -110,7 +111,7 @@ is long); each matrix cell links to it.
 | **Dependency health** | Shared-lib version lag, pinned vs. floating deps, known CVEs, EOL runtimes. |
 | **Secrets & access** | Hardcoded credentials, over-broad IAM/service accounts, secrets in logs. |
 | **Ownership & docs** | CODEOWNERS / on-call, README accuracy, runbook exists. |
-| **Dead code & config** | From the `review-repo-code-quality` DC sweep: unused tasks, stuck feature flags, stale env branches. |
+| **Dead code & config** | Unused DAG tasks, stuck feature flags, stale env-specific branches, lint-ignore entries for rules never selected. Use a dead-code tool (`vulture`, `knip`, …) plus grep; read-only. |
 | **Change velocity** | Commit recency, PR review depth, whether it's a "nobody touches it" pipeline. |
 
 ## Phase 3 — Cross-cutting analysis (this is where the value is)
@@ -119,7 +120,7 @@ Look across the matrix for **systemic** issues:
 
 1. **Drift clusters.** Which pipelines have diverged from the template, in what direction, and did divergences propagate by copy-paste? Group by "generation" — pipelines forked from the same ancestor often share the same bug.
 2. **Contract fragility.** For every edge in the graph: is the schema enforced on both sides, one side, or neither? Rank edges by (criticality × lack of enforcement).
-3. **Copy-paste logic across repos.** Fold the `DUP` findings from Phase 2 and, where available, one `analyze-duplicates` run over all repositories with `--cross-project` (from a scratch directory, `--output <scratch>/jscpd.md`, so nothing is written into the reviewed repos) into clusters. Each duplicate is a place a fix won't land; the recommendation is a shared-library helper plus a migration, not N tickets.
+3. **Copy-paste logic across repos.** Run `analyze-duplicates` once over all repositories with `--cross-project` (from a scratch directory, `--output <scratch>/jscpd.md`, so nothing is written into the reviewed repos; that skill fetches jscpd with `npx --yes jscpd@latest` when none is installed — prefer an installed or pinned jscpd and say which was used) and group the hits into clusters. Each duplicate is a place a fix won't land; the recommendation is a shared-library helper plus a migration, not N tickets.
 4. **Shared library blast radius.** What breaks if the shared lib ships a breaking change? Which pipelines are N versions behind and why? Does the shared layer itself have CI?
 5. **Failure propagation.** Trace a failure from a hub node downstream: does it cascade, stall, or silently produce stale data? Where are the circuit breakers?
 6. **Convention gaps.** Things the template *doesn't* specify that everyone solved differently (e.g. timezone handling, null semantics, late-arriving data, what a `limit` parameter means).
@@ -133,6 +134,14 @@ Score each finding: **Impact** (blast radius via graph) × **Likelihood** (evide
 - **Fix systemically** — push into the template/shared lib so it lands everywhere.
 - **Accept & document** — intentional divergence, low criticality.
 - **Retire** — orphaned pipelines, dead DAG branches.
+
+Then pick the **depth set**: the hub nodes, the shared library/template,
+and any repository whose matrix row drove a "Fix now" item — usually two
+to five. Run `review-repo-code-quality` in full on each (its own Inputs,
+its own consent gate for executing that repository's tests, its own
+report at that repository's default path), and link each report from
+"Per-repository notes". Ask before starting if the set is larger than
+five or the repositories are not the user's own.
 
 ## Where to write the report
 
@@ -178,7 +187,8 @@ blast radius, whether it has ever fired, recommended fix and whether it belongs 
 template / shared lib.
 
 ## Per-repository notes
-Only notable deviations; don't repeat the matrix.
+Only notable deviations; don't repeat the matrix. Link the full
+`review-repo-code-quality` report for each repository in the depth set.
 
 ## Prioritized action plan
 Fix now / Fix systemically / Accept / Retire — each with owner suggestion and effort estimate.
@@ -188,8 +198,8 @@ What was scanned, what was sampled, what was verified empirically vs. inferred,
 confidence level, where this report lives for the next run.
 
 ## Evidence appendix
-Per repository: the Breadth-mode findings (locations, baseline status) and the
-config/workflow facts each matrix cell was scored from.
+Per repository: `{repo}@{short SHA}` and the config/workflow/source facts each
+matrix cell was scored from, with `file:line` citations.
 ```
 
 ## Operating rules
@@ -211,10 +221,10 @@ config/workflow facts each matrix cell was scored from.
 - **Dependency/version matrix:** parse every `requirements*.txt` / `pyproject.toml` / `package.json` and pivot by shared-lib version.
 - **Drift diff:** `diff -r` each pipeline against the template, filtered to structural files.
 - **Edge extraction:** grep for table/topic/bucket identifiers in read/write calls; join with orchestrator DAG definitions.
-- **Staleness:** `git log -1 --format=%cd` per repo, plus PR count in last 90 days.
+- **Staleness / change velocity:** `github-project-status` per repository (commits, releases, PRs, issues), or `scan-projects` for last-commit dates across a side-by-side checkout; fall back to `git log -1 --format=%cd` plus PR count in the last 90 days.
 
 ## Tailoring notes
 
 - If you already have a lineage tool (OpenLineage, Marquez, dbt docs, Dagster asset graph), feed it in at Phase 1 and skip edge extraction.
-- If the ecosystem is a monorepo, run Breadth mode once per package (same checkout, different scope) and spend the saved time on Phase 3.
+- If the ecosystem is a monorepo, score Phase 2 per package (same checkout, different scope), run the depth reviews per package, and spend the saved time on Phase 3.
 - The 0–3 scoring is deliberately coarse; finer scales invite arguments about 6 vs. 7 rather than action.

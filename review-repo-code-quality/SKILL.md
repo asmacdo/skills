@@ -27,7 +27,8 @@ user to install `code-quality-report-conventions`; do not proceed from memory.
 One repository (or one package in a monorepo), reviewed for quality rather
 than correctness: nothing proposed may change observable behavior. For
 sets of similarly built, interconnected repositories, run `review-org-code-quality`,
-which calls this skill per repository and then looks across them.
+which looks across them first and then runs this skill in full on the
+repositories its graph flags as most critical.
 
 ## Inputs
 
@@ -52,31 +53,40 @@ about itself. Findings are measured against these first; generic best
 practice second.
 
 Run the project's own linter and test suite once to get a **baseline**
-(count of tests passing, lint clean or not). Record the exact command. If
-the suite cannot run here (needs credentials, network, or services),
-record `baseline not run: <reason>` and rate any finding whose safety
-depends on it **Low** confidence.
+(count of tests passing, lint clean or not), but only after the user has
+confirmed that executing this repository's code is acceptable (ask via
+AskUserQuestion; prefer a container, VM, or throwaway checkout). Record the
+exact command. If the user declines, or the suite cannot run here (needs
+credentials, network, or services), record `baseline not run: <reason>` and
+rate any finding whose safety depends on it **Low** confidence.
 
 ### Step 2 — Mechanical sweep
 
 Breadth first, with tools, over the whole scope:
 
-- **Dead code:** unreferenced symbols (`grep -rn` across source, tests,
-  scripts, configs, and workflows — a name patched by a test is not
-  dead), unreachable branches, guards that can never fire, lint-ignore
-  entries for rules the selected rule set never reaches, configuration
-  that is never consulted.
+- **Dead code:** start with a dead-code tool for the language (`vulture`
+  for Python, `knip` for JS/TS, `deadcode` for Go, …) and confirm each hit
+  with `grep -rn` across source, tests, scripts, configs, and workflows —
+  a name patched by a test is not dead. Also: unreachable branches,
+  guards that can never fire, lint-ignore entries for rules the selected
+  rule set never reaches, configuration that is never consulted.
 - **Duplication:** run the `analyze-duplicates` skill (jscpd) if
   available — from a scratch directory, with `--output <scratch>/jscpd.md`,
   so nothing (`.tmp/`, `.gitignore`, `.jscpd-report.md`) is written into
-  the reviewed repository. If jscpd cannot be installed, search for
-  repeated multi-line idioms by hand and say so in Method & limits.
-  Note where copies have **drifted**, since drifted copies are the
-  expensive ones.
-- **Idiom drift:** assign-then-return, unnecessary comprehensions,
-  `pass` in non-empty bodies, `any()` as a non-emptiness test, redundant
-  type conversions, `for k in d.keys()`, inconsistent naming for the
-  same concept, annotations that disagree with the returned type.
+  the reviewed repository. That skill fetches jscpd with
+  `npx --yes jscpd@latest` when none is installed; prefer an installed or
+  pinned jscpd and tell the user which was used. If jscpd cannot be
+  installed, search for repeated multi-line idioms by hand and say so in
+  Method & limits. Note where copies have **drifted**, since drifted
+  copies are the expensive ones.
+- **Idiom drift:** run the project's own linter with an extended rule set
+  (for `ruff`, e.g. `--select RET,SIM,C4,PIE,PLR` on top of the project's
+  selection; `eslint` with `unicorn`/`sonarjs`) and read its output
+  rather than hand-grepping. Typical hits: assign-then-return,
+  unnecessary comprehensions, `pass` in non-empty bodies, `any()` as a
+  non-emptiness test, redundant type conversions, `for k in d.keys()`,
+  inconsistent naming for the same concept, annotations that disagree
+  with the returned type.
 - **Project-rule drift:** anything Step 1's rules forbid that the code
   does anyway (function-local imports without a cycle to break, private
   imports where a public re-export exists, a declared hard dependency
@@ -190,28 +200,6 @@ the baseline. Mark each finding `APPLIED` (or `PARTLY APPLIED` with the
 reason) in the report as you go. If the maintainer rejects a change,
 undo it, mark it `REVERTED AT THE AUTHOR'S REQUEST`, keep the reasoning
 under the finding, and offer to record the preference in `AGENTS.md`.
-
-## Breadth mode (used by `review-org-code-quality`)
-
-When invoked per repository by `review-org-code-quality`: do not ask the Inputs
-questions (the caller supplies scope), do not write a report, do not apply
-changes.
-
-- **Step 1, reading only.** Run the baseline (linter and test suite) only
-  when it needs no credentials, network, or services *and* the caller has
-  approved executing the repository's code; otherwise record
-  `baseline not run: <reason>`.
-- **Step 2** for Dead code, Duplication, and Project-rule drift only.
-  Skip jscpd here — the caller runs one `analyze-duplicates
-  --cross-project` over all repositories in its Phase 3 — and report only
-  drifted twins found by hand.
-- **Step 3** for the top candidates.
-
-Return to the caller: `{repo}@{short SHA}` (`+dirty` if the tree is
-dirty), the baseline status, and `DC` / `DUP` findings with locations;
-project-rule drift is returned as `NV` items (the caller decides whether
-it is a systemic finding). The caller owns the matrix and the evidence
-appendix.
 
 ## Operating rules
 
