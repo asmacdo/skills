@@ -1,6 +1,6 @@
 ---
 name: setup-duplicates-analysis
-description: Set up code/text duplication analysis (jscpd) as a permanent part of a project's development workflow — a tox env, pixi task, Makefile target, or npm script, wired into whatever CI the project uses. Detects whether it's already set up (and if so, whether it's already clean), runs the analysis, proposes and applies mitigation refactors, and iterates until checks come out clean, committing along the way. Also has a report-only mode (formerly /analyze-duplicates) producing a one-shot Markdown report with collapsible sections and a mediation plan, suitable for GitHub/Gitea issues. Use when setting up jscpd duplication analysis in a new project, when asked to "set up duplicate analysis" / "introduce duplicate analysis" / "add a DRY check" / "wire up jscpd in CI", or (report-only) to "check for duplicates" / "find copy-paste code" / run a "DRY audit" / "duplicate detection" / find "code clones".
+description: Set up code/text duplication analysis (jscpd) as a permanent part of a project's development workflow — a pre-commit hook, tox env, pixi task, Makefile target, or npm script, wired into whatever CI the project uses. Detects whether it's already set up (and if so, whether it's already clean), runs the analysis, proposes and applies mitigation refactors, and iterates until checks come out clean, committing along the way. Also has a report-only mode (formerly /analyze-duplicates) producing a one-shot Markdown report with collapsible sections and a mediation plan, suitable for GitHub/Gitea issues. Use when setting up jscpd duplication analysis in a new project, when asked to "set up duplicate analysis" / "introduce duplicate analysis" / "add a DRY check" / "wire up jscpd in CI", or (report-only) to "check for duplicates" / "find copy-paste code" / run a "DRY audit" / "duplicate detection" / find "code clones".
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion
 user-invocable: true
 ---
@@ -9,8 +9,8 @@ user-invocable: true
 
 Make code/text duplication detection (via `jscpd`) a permanent, CI-enforced
 part of a project's development workflow — not a one-off report. Detect the
-project's build tooling (tox, pixi, Makefile, npm, or none), wire in a
-named check that fits that tooling, wire that check into CI, then run it,
+project's check runner (pre-commit, tox, pixi, Makefile, npm, or none),
+wire in a named check that fits it, wire that check into CI, then run it,
 mediate any duplication found through actual refactoring, and iterate until
 the checks pass cleanly.
 
@@ -28,12 +28,12 @@ the checks pass cleanly.
 
 ## Modes
 
-1. **Setup** (default) — the full workflow in this file: make the check
-   a standing part of the project (tox env / pixi task / Makefile target /
-   npm script), wire it into CI so future PRs are gated on it, then propose
-   and apply mitigations and iterate until the newly-wired check passes,
-   committing as it goes (mirroring `/setup-codespell`'s "set up,
-   analyze, fix, verify, PR" arc).
+1. **Setup** (default) — the full workflow in this file: make the check a
+   standing part of the project (pre-commit hook / tox env / pixi task /
+   Makefile target / npm script), wire it into CI so future PRs are gated on
+   it, then propose and apply mitigations and iterate until the newly-wired
+   check passes, committing as it goes (mirroring `/setup-codespell`'s "set
+   up, analyze, fix, verify, PR" arc).
 2. **Report-only** — follow `report-mode.md` (next to this file) instead
    when the user asks only for a report, passes `--report-only` or any
    report-only flag (`--cross-project`, `--badge`, `--no-html`,
@@ -61,6 +61,7 @@ fixture before trusting its output for this run.
 ## Prerequisites
 
 - `jscpd` reachable via `npx --yes jscpd@latest` (or globally installed)
+- `pre-commit` (or `uvx pre-commit`) when the project uses pre-commit
 - Git repository (Setup mode; report-only mode works on any path)
 - `gh` CLI for PR creation (optional — GitHub only)
 
@@ -187,7 +188,7 @@ runner sees. Grep for this:
 
 ```bash
 grep -nE 'jscpd' tox.ini Makefile pixi.toml package.json tools/*.sh scripts/*.sh \
-  .github/workflows/*.y*ml .forgejo/workflows/*.y*ml 2>/dev/null
+  .pre-commit-config.yaml .github/workflows/*.y*ml .forgejo/workflows/*.y*ml 2>/dev/null
 ```
 
 Anything beyond a bare `npx jscpd <path>` (which reads `.jscpd.json`
@@ -214,12 +215,12 @@ git checkout -b enh-duplication-analysis
 | `package.json` (no tox/pixi/Makefile, JS/TS project) | npm        | new `"check:duplication"` script                         |
 | None of the above                                    | bare       | a standalone script + direct CI step (no wrapper target) |
 
-If multiple are present (e.g. both `tox.ini` and `package.json` in a
-mixed-language repo), prefer whichever tool CI already invokes
-as its primary driver — check `.github/workflows/*.yml` for `tox` vs `npm`
-vs `make` invocations. Wire in that one; a secondary tool can get a thin
-pass-through if the project's convention already does that for other checks
-(e.g. tox's `[testenv:frontend]` shelling out to `npm test`).
+Below the pre-commit row, if several are present (e.g. both `tox.ini` and
+`package.json` in a mixed-language repo), prefer whichever tool CI already
+invokes as its primary driver — check `.github/workflows/*.yml` for `tox` vs
+`npm` vs `make` invocations. Wire in that one; a secondary tool can get a
+thin pass-through if the project's convention already does that for other
+checks (e.g. tox's `[testenv:frontend]` shelling out to `npm test`).
 
 ## Step 2: Detect Languages and Build the Ignore List
 
@@ -342,7 +343,8 @@ immediately on pre-existing duplication that nobody has reviewed yet.
 5. **Verify the check can actually fail** before considering the wiring
    done: temporarily set `threshold` to a value below the measured
    percentage (or `0` against a tree with any duplication) and confirm the
-   build-tool command exits non-zero, then restore the intended threshold.
+   check's command (`pre-commit run jscpd --all-files` or the build-tool
+   target) exits non-zero, then restore the intended threshold.
    A duplication check that always exits 0 regardless of content is worse
    than no check — it's a false sense of coverage. This is the single most
    valuable verification in this skill; don't skip it.
@@ -354,41 +356,38 @@ as a subagent without an interactive question tool), pick zero-tolerance
 as the default ambition, state that assumption explicitly in your final
 report, and move on rather than blocking.
 
-## Step 4: Wire into the Build Tool
+## Step 4: Wire into the Check Runner
 
 ### 4.0 If the project uses pre-commit, the hook is the check
 
-When `.pre-commit-config.yaml` exists (Step 0.1), add jscpd as a hook there
-instead of a wrapper script and build-tool target:
+When `.pre-commit-config.yaml` exists (Step 0.1), add jscpd's own hook
+under `repos:` (matching the file's indentation) instead of a wrapper
+script and build-tool target:
 
 ```yaml
-- repo: local
+- repo: https://github.com/kucherenko/jscpd
+  rev: v<VERSION>        # latest tag; `pre-commit autoupdate` bumps it
   hooks:
   - id: jscpd
-    name: jscpd (code duplication)
-    language: node
-    additional_dependencies: ["jscpd@<VERSION>"]  # pin it: npm view jscpd version
-    entry: jscpd
     args: ["."]
     pass_filenames: false
 ```
 
-- **Pin the version** like every other hook, and bump it with them —
-  `@latest` would make results drift between runs.
-- **`pass_filenames: false`** keeps the scan whole-tree, so `threshold`
-  means the same as in CI; given only the staged files, jscpd would compute
-  the percentage over just those.
-- **No `--ignore`/`--threshold` args**: pre-commit runs hooks from the repo
-  root, where jscpd reads `.jscpd.json` (the masking-hazard rule of Step 0.3).
-- **Node**: pre-commit provisions it for `language: node` hooks, downloading
-  one if the machine has none, so the hook needs no extra setup.
-- If jscpd's own repository publishes a `.pre-commit-hooks.yaml`, prefer it
-  (`repo:` its URL, a pinned `rev:`) over the local hook.
+- **The two overrides matter.** Upstream's default passes only the staged
+  files; `args: ["."]` with `pass_filenames: false` scans the whole tree,
+  so `threshold` means the same as in CI. (Locally the scan also sees
+  untracked files that git doesn't ignore, so numbers can differ slightly.)
+- **No `--ignore`/`--threshold` args**: hooks run from the repo root, where
+  jscpd reads `.jscpd.json` (the masking-hazard rule of Step 0.3).
+- Since v5.3.0 the hook installs jscpd's PyPI wheel, so it needs no Node.
+  Those wheels need glibc 2.34+ (or musl, macOS, Windows) and there is no
+  sdist; where they can't install, use a `repo: local` hook with
+  `language: node`, `entry: jscpd`, the same two overrides and
+  `additional_dependencies: ["jscpd@<VERSION>"]` — pre-commit provisions
+  Node for it, but `pre-commit autoupdate` won't bump that pin.
 - Skip the wrapper script and build-tool target below — unless the
   project's convention gives every check its own target, in which case make
   it a thin `pre-commit run jscpd --all-files`.
-- The "verify the check can actually fail" step (Step 3) runs
-  `pre-commit run jscpd --all-files`.
 
 ### 4.1 Otherwise: a wrapper script and a build-tool target
 
@@ -511,15 +510,18 @@ grep 'uses:' .github/workflows/*.yml 2>/dev/null | head -20   # SHA-pinned actio
 With a pre-commit hook (Step 4.0), what CI needs depends on what already
 runs pre-commit (Step 0.1):
 
-| What runs pre-commit today      | What to add to CI                                      |
-| ------------------------------- | ------------------------------------------------------ |
-| A CI job, or a tox env CI calls | Nothing; check it isn't skipped, find it in the CI log |
-| pre-commit.ci                   | Nothing; check `ci: skip:`, confirm on the first run   |
-| Nothing                         | Ask: a workflow running all of pre-commit, or shape B  |
+| What runs pre-commit today      | What to add to CI                                       |
+| ------------------------------- | ------------------------------------------------------- |
+| A CI job, or a tox env CI calls | Nothing; check it runs all hooks, find jscpd in its log |
+| pre-commit.ci                   | Nothing; confirm on the PR's first pre-commit.ci run    |
+| Nothing                         | A dedicated jscpd job (default), or ask about all hooks |
 
 A CI job here is any step running `pre-commit run` or `pre-commit/action`;
-it skips the hook if it sets `SKIP=` or runs only selected hooks. A
-workflow running all of pre-commit covers every hook, not just jscpd.
+it misses the new hook only if it names a fixed list of hooks or a
+`--hook-stage`. The dedicated job is shape B below with its run step
+replaced by `pre-commit/action` and `extra_args: jscpd --all-files`. A
+workflow running all of pre-commit covers every hook, but other hooks' old
+violations can fail it on day one — so ask before choosing that.
 
 Without pre-commit, pick one of the shapes below.
 
@@ -580,7 +582,8 @@ Step 2 for the full platform-difference table if unsure.
 
 ### 5.1a Confirm the runner actually has Node available
 
-(Not needed for a pre-commit hook — pre-commit provisions Node itself.)
+(Not needed for a pre-commit hook: the upstream hook installs a Python
+wheel, and pre-commit provisions Node for the local fallback.)
 jscpd needs `npx`/Node.js regardless of which shape above you used. On
 GitHub-hosted `ubuntu-latest` runners this is preinstalled, so shape A/A2
 (riding along on an existing Python-only job) works without extra setup —
@@ -683,7 +686,9 @@ classification):
    reformatting matches what CI enforces — not whatever formatter version
    is on `$PATH`, which can restyle unrelated code. If hooks modify files,
    `git add` them and re-run until clean; never bypass with `--no-verify`.
-   Stage only the files this refactor actually changed.
+   While duplication is still over the threshold the jscpd hook itself
+   fails, so run with `SKIP=jscpd` until Step 10. Stage only the files this
+   refactor actually changed.
 5. Commit the refactor on its own (one logical change per commit, per this
    project's own git-hygiene convention):
    ```bash
@@ -742,9 +747,10 @@ Add code duplication analysis (jscpd) to the development workflow.
 ## Changes
 
 - Added `.jscpd.json` with threshold <N>%, ignoring <IGNORE_SUMMARY>
-- Wired a `<tox -e duplication | pixi task | make target>` check backed by
-  `tools/check-duplication.sh`
-- Added the check to CI (<workflow file>)
+- Wired the check as <a jscpd pre-commit hook | a `tox -e duplication` /
+  pixi task / make target backed by `tools/check-duplication.sh`>
+- CI: <added to <workflow file> | runs via the existing pre-commit job or
+  pre-commit.ci>
 - <N> duplicate clusters found and resolved via refactoring (see commits)
 - Threshold tightened to <FINAL_THRESHOLD>% after cleanup
 
@@ -781,7 +787,10 @@ text) about:
    trees, generated docs)
 3. **Ambiguous refactors** — moderate/hard clusters where the right shared
    abstraction isn't obvious
-4. **Whether to push / open a PR** — always confirm before doing this
+4. **CI for a pre-commit hook when nothing runs pre-commit yet** — a
+   dedicated jscpd job (default) vs. a workflow running all hooks (Step
+   5.0a)
+5. **Whether to push / open a PR** — always confirm before doing this
    against any repo the user didn't explicitly say to push to
 
 If you can't ask the user in this context (e.g. you're a subagent
