@@ -181,14 +181,15 @@ be verified, where this report lives for the next run.}
 
 ### Step 5 — Apply changes (only if asked)
 
+Refuse to start on a dirty tree. Work on a new branch (or `git worktree`) so a
+rejected change is undone by reverting your own changes only; never discard
+changes you did not make. Commit only if asked.
 Work group by group from "Recommended order of changes". After each group,
 run its verification and the baseline test command; the counts must match
 the baseline. Mark each finding `APPLIED` (or `PARTLY APPLIED` with the
 reason) in the report as you go. If the maintainer rejects a change,
-revert it, mark it `REVERTED AT THE AUTHOR'S REQUEST`, keep the reasoning
+undo it, mark it `REVERTED AT THE AUTHOR'S REQUEST`, keep the reasoning
 under the finding, and offer to record the preference in `AGENTS.md`.
-Never bump a version or write a changelog entry for a tests-only change
-unless the project's rules say to.
 
 ## Breadth mode (used by `review-org-code-quality`)
 
