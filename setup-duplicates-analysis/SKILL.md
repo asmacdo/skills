@@ -1,11 +1,11 @@
 ---
-name: introduce-duplicates-analysis
-description: Introduce code/text duplication analysis (jscpd) as a permanent part of a project's development workflow — a tox env, pixi task, Makefile target, or npm script, wired into whatever CI the project uses. Detects whether it's already set up (and if so, whether it's already clean), runs the analysis, proposes and applies mitigation refactors, and iterates until checks come out clean, committing along the way. Also has a report-only mode (formerly /analyze-duplicates) producing a one-shot Markdown report with collapsible sections and a mediation plan, suitable for GitHub/Gitea issues. Use when setting up jscpd duplication analysis in a new project, when asked to "introduce duplicate analysis" / "add a DRY check" / "wire up jscpd in CI", or (report-only) to "check for duplicates" / "find copy-paste code" / run a "DRY audit" / "duplicate detection" / find "code clones".
+name: setup-duplicates-analysis
+description: Set up code/text duplication analysis (jscpd) as a permanent part of a project's development workflow — a tox env, pixi task, Makefile target, or npm script, wired into whatever CI the project uses. Detects whether it's already set up (and if so, whether it's already clean), runs the analysis, proposes and applies mitigation refactors, and iterates until checks come out clean, committing along the way. Also has a report-only mode (formerly /analyze-duplicates) producing a one-shot Markdown report with collapsible sections and a mediation plan, suitable for GitHub/Gitea issues. Use when setting up jscpd duplication analysis in a new project, when asked to "set up duplicate analysis" / "introduce duplicate analysis" / "add a DRY check" / "wire up jscpd in CI", or (report-only) to "check for duplicates" / "find copy-paste code" / run a "DRY audit" / "duplicate detection" / find "code clones".
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion
 user-invocable: true
 ---
 
-# Introduce Duplicates Analysis
+# Set Up Duplicates Analysis
 
 Make code/text duplication detection (via `jscpd`) a permanent, CI-enforced
 part of a project's development workflow — not a one-off report. Detect the
@@ -18,8 +18,9 @@ the checks pass cleanly.
 
 - User wants duplication/DRY checking to become part of the default dev
   workflow, not a one-off scan
-- User asks to "introduce duplicate analysis", "add a DRY check", "wire up
-  jscpd", or runs `/introduce-duplicates-analysis`
+- User asks to "set up duplicate analysis" or "introduce duplicate
+  analysis", "add a DRY check", "wire up jscpd", or runs
+  `/setup-duplicates-analysis`
 - User wants CI to fail on new duplication going forward
 - User only wants a one-shot duplication report (e.g. to paste into an
   issue), "check for duplicates", "find copy-paste code", "DRY audit" —
@@ -27,11 +28,11 @@ the checks pass cleanly.
 
 ## Modes
 
-1. **Introduce** (default) — the full workflow in this file: make the check
+1. **Setup** (default) — the full workflow in this file: make the check
    a standing part of the project (tox env / pixi task / Makefile target /
    npm script), wire it into CI so future PRs are gated on it, then propose
    and apply mitigations and iterate until the newly-wired check passes,
-   committing as it goes (mirroring `/introduce-codespell`'s "set up,
+   committing as it goes (mirroring `/setup-codespell`'s "set up,
    analyze, fix, verify, PR" arc).
 2. **Report-only** — follow `report-mode.md` (next to this file) instead
    when the user asks only for a report, passes `--report-only` or any
@@ -60,7 +61,7 @@ fixture before trusting its output for this run.
 ## Prerequisites
 
 - `jscpd` reachable via `npx --yes jscpd@latest` (or globally installed)
-- Git repository (Introduce mode; report-only mode works on any path)
+- Git repository (Setup mode; report-only mode works on any path)
 - `gh` CLI for PR creation (optional — GitHub only)
 
 ## Commits
@@ -163,7 +164,7 @@ run would show (different ignore list, different config file picked up).
 
 #### Audit for masking hazards (apply the codespell-skill lesson here too)
 
-Exactly like `/introduce-codespell`'s "hardcoded options" audit: if a runner
+Exactly like `/setup-codespell`'s "hardcoded options" audit: if a runner
 invokes jscpd with its **own** CLI flags (`--ignore`, `--threshold`,
 `--min-lines`, format list) instead of reading the shared `.jscpd.json`, it
 can silently diverge from what CI actually enforces, or mask what a parallel
@@ -437,7 +438,7 @@ Keep just the wrapper script; CI will call it directly (Step 5).
 
 ## Step 5: Wire into CI
 
-### 5.0 Inspect existing workflow conventions (MANDATORY — same as `/introduce-codespell` §2.0)
+### 5.0 Inspect existing workflow conventions (MANDATORY — same as `/setup-codespell` §2.0)
 
 ```bash
 ls .github/workflows/*.yml .forgejo/workflows/*.yml 2>/dev/null
@@ -504,7 +505,7 @@ same command a contributor would run locally:
 
 For Forgejo/Codeberg, use `runs-on: docker`, no `permissions:` block, and
 the Forgejo mirror of `actions/checkout`
-(`https://code.forgejo.org/actions/checkout@vN`) — see `/introduce-codespell`
+(`https://code.forgejo.org/actions/checkout@vN`) — see `/setup-codespell`
 Step 2 for the full platform-difference table if unsure.
 
 ### 5.1a Confirm the runner actually has Node available
@@ -640,7 +641,7 @@ in Step 3 (ideally `0`, i.e. fully clean).
 
 ## Step 11: Prepare PR — but do not push/open one without being asked
 
-This step mirrors `/introduce-codespell` Step 11 (template respect,
+This step mirrors `/setup-codespell` Step 11 (template respect,
 CONTRIBUTING.md, PR body content) with one difference: **do not run the
 push/`gh pr create` command yourself.** Opening a PR is a visible, hard-to-
 reverse action against a shared repository — always hand the user a

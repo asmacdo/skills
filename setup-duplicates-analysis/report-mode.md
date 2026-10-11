@@ -5,7 +5,7 @@ Markdown report with `<details>` sections for posting as a GitHub/Gitea issue,
 and propose a concrete mediation plan — **without** wiring anything into the
 project, refactoring, or committing. This is what the former
 `/analyze-duplicates` skill did; it now lives here as a mode of
-`/introduce-duplicates-analysis` (see "Modes" in `SKILL.md`).
+`/setup-duplicates-analysis` (see "Modes" in `SKILL.md`).
 
 `<installed-skill-dir>` below is the directory containing this file and
 `SKILL.md`; `generate-report.py` ships alongside them.
@@ -154,7 +154,7 @@ for each cluster. After the report is generated:
    - Badge SVG path (only if `--badge` was used)
 3. If duplication exceeds the threshold, note this prominently
 4. If the user may want this enforced going forward, offer the full
-   `/introduce-duplicates-analysis` workflow (`SKILL.md`)
+   `/setup-duplicates-analysis` workflow (`SKILL.md`)
 
 ## Report Format
 
