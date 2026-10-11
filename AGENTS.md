@@ -124,17 +124,13 @@ rewrite is safe).
 
 ### Skill versions
 
-A skill whose output records which version of the skill produced it
-(currently `review-repo-code-quality`, `review-org-code-quality`, and the
-`code-quality-report-conventions` they share) declares
-`version: MAJOR.MINOR.PATCH` in its `SKILL.md` frontmatter — the field
-APM reads. Whoever changes that skill's procedure, report layout, or
-scoring bumps the version in the same commit (MINOR for a changed or
-added step or section, PATCH for a clarification that does not change
-what a run does, MAJOR when earlier reports can no longer be compared
-with new ones). Wording fixes do not bump it. Consumers pin the
-`con/skills` commit, so the version is a human-readable label, not the
-source of truth; the report also records the commit.
+A skill whose output records which version of the skill produced it declares
+`version: MAJOR.MINOR.PATCH` in its `SKILL.md` frontmatter — the field APM
+reads. Whoever changes its procedure, report layout, or scoring bumps it in
+the same commit: MINOR for a changed or added step or section, PATCH for a
+behavior-neutral clarification, MAJOR when earlier reports can no longer be
+compared with new ones. Pure typo or wording fixes do not bump it. A skill
+whose own report-layout template changes bumps its own version.
 
 (Add new cross-cutting rules here as they emerge. Skill-specific rules
 belong in the individual `SKILL.md` files.)
