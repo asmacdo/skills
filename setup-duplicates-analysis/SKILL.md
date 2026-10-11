@@ -82,7 +82,8 @@ threshold tightening.
    if so, is it clean?
 2. **Setup** — branch, detect build tooling, detect languages/ignore list
 3. **Config** — create/update `.jscpd.json` (or equivalent)
-4. **Wire into build tool** — tox env / pixi task / Makefile target / npm
+4. **Wire into the check runner** — a pre-commit hook if the project uses
+   pre-commit; otherwise a tox env / pixi task / Makefile target / npm
    script, backed by a small wrapper script
 5. **Wire into CI** — add the check to whatever CI platform the project uses
 6. **Commit infrastructure**
@@ -125,6 +126,19 @@ before a migration). List what's actually active — check which ones the
 project's badges/README reference, or which have run recently — rather
 than assuming only one applies.
 
+Also record whether the project uses **pre-commit**, and what (if anything)
+already runs it in CI — Steps 4.0 and 5.0a depend on the answer:
+
+```bash
+ls .pre-commit-config.yaml 2>/dev/null
+grep -nE '^ci:' .pre-commit-config.yaml 2>/dev/null           # pre-commit.ci settings
+grep -n 'results.pre-commit.ci' README* 2>/dev/null            # pre-commit.ci badge
+git log -200 --format='%an' | grep -c 'pre-commit-ci\[bot\]'   # pre-commit.ci commits
+grep -rnE 'pre-commit run|pre-commit/action' .github/workflows .forgejo/workflows \
+  .gitlab-ci.y*ml 2>/dev/null
+grep -nE 'pre-commit' tox.ini Makefile noxfile.py 2>/dev/null  # a lint env/target CI may call
+```
+
 ### 0.2 Detect CI Platform
 
 ```bash
@@ -148,19 +162,20 @@ If mirrored on multiple platforms, wire in each.
 | **Partially wired**      | Do only the missing parts of Steps 1–6, then continue     |
 | **Not present**          | Full Steps 1–6                                            |
 
-"Fully wired" means config + build-tool target + a CI job that actually
-runs it; a CI job that never invokes the check (see the masking-hazard
-audit below) counts as partially wired. For an already-clean setup,
-optionally offer a report-only run (`report-mode.md`) to show what is
-*near* the threshold.
+"Fully wired" means config + a pre-commit hook or build-tool target + a
+CI job (or pre-commit.ci) that actually runs it; a CI job that never
+invokes the check (see the masking-hazard audit below) counts as partially
+wired. For an already-clean setup, optionally offer a report-only run
+(`report-mode.md`) to show what is *near* the threshold.
 
 #### 0.3a Confirm a "fully wired" setup actually passes
 
 Run the project's own check exactly as CI would invoke it (not a bare
-`npx jscpd`) — e.g. `tox -e duplication`, `pixi run check-duplication`,
-`make check-duplication`, or `npm run check:duplication`. This matters
-because a wrapper script can silently diverge from what a bare `npx jscpd`
-run would show (different ignore list, different config file picked up).
+`npx jscpd`) — e.g. `pre-commit run jscpd --all-files`, `tox -e
+duplication`, `pixi run check-duplication`, `make check-duplication`, or
+`npm run check:duplication`. This matters because a wrapper script can
+silently diverge from what a bare `npx jscpd` run would show (different
+ignore list, different config file picked up).
 
 #### Audit for masking hazards (apply the codespell-skill lesson here too)
 
@@ -190,13 +205,14 @@ git checkout -b enh-duplication-analysis
 
 ### Detect Build Tooling (in priority order)
 
-| Detected file(s)                                     | Tooling | Where the check goes                                     |
-| ---------------------------------------------------- | ------- | -------------------------------------------------------- |
-| `tox.ini`                                            | tox     | new `[testenv:duplication]`, added to `envlist`          |
-| `pixi.toml` or `[tool.pixi]` in `pyproject.toml`     | pixi    | new entry under `[tasks]`                                |
-| `Makefile` (no tox/pixi)                             | make    | new `check-duplication` target                           |
-| `package.json` (no tox/pixi/Makefile, JS/TS project) | npm     | new `"check:duplication"` script                         |
-| None of the above                                    | bare    | a standalone script + direct CI step (no wrapper target) |
+| Detected file(s)                                     | Tooling    | Where the check goes                                     |
+| ---------------------------------------------------- | ---------- | -------------------------------------------------------- |
+| `.pre-commit-config.yaml`                            | pre-commit | a `jscpd` hook (Step 4.0); takes precedence              |
+| `tox.ini`                                            | tox        | new `[testenv:duplication]`, added to `envlist`          |
+| `pixi.toml` or `[tool.pixi]` in `pyproject.toml`     | pixi       | new entry under `[tasks]`                                |
+| `Makefile` (no tox/pixi)                             | make       | new `check-duplication` target                           |
+| `package.json` (no tox/pixi/Makefile, JS/TS project) | npm        | new `"check:duplication"` script                         |
+| None of the above                                    | bare       | a standalone script + direct CI step (no wrapper target) |
 
 If multiple are present (e.g. both `tox.ini` and `package.json` in a
 mixed-language repo), prefer whichever tool CI already invokes
@@ -216,7 +232,8 @@ This is the one ignore list for both modes (report-only mode reuses it):
    `**/.tox/**,**/venv*/**,**/.venv/**,**/node_modules/**,**/__pycache__/**,**/.eggs/**,**/*.egg-info/**,**/.git/**,**/.npm/**,**/.tmp/**,**/dist/**,**/build/**`
    (`**/.tmp/**` matters doubly here: Step 7 writes its own JSON report into
    `.tmp/` — without this ignore, a re-run of the check will find the
-   previous run's report and scan *that* for duplication too.) Build
+   previous run's report and scan *that* for duplication too. jscpd 5.x
+   already skips paths matched by `.gitignore`, but not `.git/` itself.) Build
    products (`build/`, `dist/`, `.eggs/`, `*.egg-info/`) stay ignored even
    if a project happens to commit them — machine-generated output says
    nothing about duplication in the source. If a real source package is
@@ -339,6 +356,42 @@ report, and move on rather than blocking.
 
 ## Step 4: Wire into the Build Tool
 
+### 4.0 If the project uses pre-commit, the hook is the check
+
+When `.pre-commit-config.yaml` exists (Step 0.1), add jscpd as a hook there
+instead of a wrapper script and build-tool target:
+
+```yaml
+- repo: local
+  hooks:
+  - id: jscpd
+    name: jscpd (code duplication)
+    language: node
+    additional_dependencies: ["jscpd@<VERSION>"]  # pin it: npm view jscpd version
+    entry: jscpd
+    args: ["."]
+    pass_filenames: false
+```
+
+- **Pin the version** like every other hook, and bump it with them —
+  `@latest` would make results drift between runs.
+- **`pass_filenames: false`** keeps the scan whole-tree, so `threshold`
+  means the same as in CI; given only the staged files, jscpd would compute
+  the percentage over just those.
+- **No `--ignore`/`--threshold` args**: pre-commit runs hooks from the repo
+  root, where jscpd reads `.jscpd.json` (the masking-hazard rule of Step 0.3).
+- **Node**: pre-commit provisions it for `language: node` hooks, downloading
+  one if the machine has none, so the hook needs no extra setup.
+- If jscpd's own repository publishes a `.pre-commit-hooks.yaml`, prefer it
+  (`repo:` its URL, a pinned `rev:`) over the local hook.
+- Skip the wrapper script and build-tool target below — unless the
+  project's convention gives every check its own target, in which case make
+  it a thin `pre-commit run jscpd --all-files`.
+- The "verify the check can actually fail" step (Step 3) runs
+  `pre-commit run jscpd --all-files`.
+
+### 4.1 Otherwise: a wrapper script and a build-tool target
+
 Always back the check with a small wrapper script — do not inline
 multi-line logic directly into `tox.ini`/`Makefile`/`pixi.toml` (keep those
 files as thin `commands = ...` calls). Put the script under `tools/` or
@@ -453,6 +506,23 @@ grep 'uses:' .github/workflows/*.yml 2>/dev/null | head -20   # SHA-pinned actio
   pin the actions you add the same way — copy the SHA from another workflow
   in the same repo rather than resolving it fresh.
 
+### 5.0a Reuse CI that already runs pre-commit
+
+With a pre-commit hook (Step 4.0), what CI needs depends on what already
+runs pre-commit (Step 0.1):
+
+| What runs pre-commit today      | What to add to CI                                      |
+| ------------------------------- | ------------------------------------------------------ |
+| A CI job, or a tox env CI calls | Nothing; check it isn't skipped, find it in the CI log |
+| pre-commit.ci                   | Nothing; check `ci: skip:`, confirm on the first run   |
+| Nothing                         | Ask: a workflow running all of pre-commit, or shape B  |
+
+A CI job here is any step running `pre-commit run` or `pre-commit/action`;
+it skips the hook if it sets `SKIP=` or runs only selected hooks. A
+workflow running all of pre-commit covers every hook, not just jscpd.
+
+Without pre-commit, pick one of the shapes below.
+
 ### 5.1 Determine how to add the check
 
 Three shapes, depending on how the project already runs its non-test checks
@@ -510,6 +580,7 @@ Step 2 for the full platform-difference table if unsure.
 
 ### 5.1a Confirm the runner actually has Node available
 
+(Not needed for a pre-commit hook — pre-commit provisions Node itself.)
 jscpd needs `npx`/Node.js regardless of which shape above you used. On
 GitHub-hosted `ubuntu-latest` runners this is preinstalled, so shape A/A2
 (riding along on an existing Python-only job) works without extra setup —
@@ -538,6 +609,11 @@ git commit -F <GIT_TMP>/COMMIT_MSG   # "Add code duplication analysis to the dev
 git add .github/workflows/*.yml .forgejo/workflows/*.yml
 git commit -F <GIT_TMP>/COMMIT_MSG   # "Run duplication check in CI"
 ```
+
+With a pre-commit hook (Step 4.0), the first commit holds `.jscpd.json`
+and `.pre-commit-config.yaml` instead of the script and build-tool file;
+when pre-commit.ci or an existing CI job already runs pre-commit (Step
+5.0a), there is no second commit.
 
 Include `.gitignore` in the first commit if Step 7's `.tmp/` output
 directory (or wherever jscpd's JSON/HTML reporters write) isn't already
@@ -601,14 +677,12 @@ classification):
 4. Run the project's existing test suite for the touched area — a
    duplication-driven refactor is a correctness-risk change like any other;
    don't skip verification just because the motivation was "just DRY".
-4a. If the project has a formatter/linter with auto-fix in
-   `.pre-commit-config.yaml` (`black`, `ruff-format`, `isort`, `prettier`,
-   `eslint --fix`, ...), run it on **only the files you just touched**,
-   using the version **pinned in `.pre-commit-config.yaml`** — not
-   whatever version happens to be on `$PATH` or installed globally. A
-   newer/different formatter version can reformat unrelated style in files
-   you didn't otherwise touch (e.g. rewriting `...` stub formatting), which
-   then looks like unrelated noise in your diff and has to be reverted.
+4a. If `.pre-commit-config.yaml` exists, run `pre-commit run --files
+   <touched files>` (or `uvx pre-commit …` when it isn't installed) before
+   committing. It uses the hook versions pinned in the config, so any
+   reformatting matches what CI enforces — not whatever formatter version
+   is on `$PATH`, which can restyle unrelated code. If hooks modify files,
+   `git add` them and re-run until clean; never bypass with `--no-verify`.
    Stage only the files this refactor actually changed.
 5. Commit the refactor on its own (one logical change per commit, per this
    project's own git-hygiene convention):
@@ -628,9 +702,10 @@ in Step 3 (ideally `0`, i.e. fully clean).
 
 ## Step 10: Final Verification and Threshold Tightening
 
-1. Re-run the check exactly as CI/a contributor would invoke it (`tox -e
-   duplication`, `pixi run check-duplication`, etc.) — not just a bare
-   `npx jscpd` — to confirm the wiring itself works end-to-end.
+1. Re-run the check exactly as CI/a contributor would invoke it
+   (`pre-commit run jscpd --all-files`, `tox -e duplication`, `pixi run
+   check-duplication`, etc.) — not just a bare `npx jscpd` — to confirm
+   the wiring itself works end-to-end.
 2. Update `.jscpd.json`'s `threshold` to match the now-clean (or
    deliberately-residual) state reached in Step 9. Commit this alongside
    any last mitigation commit, or as its own small commit:
@@ -727,9 +802,10 @@ default to **not** pushing (Step 11) and say so.
 
 After completing the skill:
 
-- A feature branch with (as applicable): `.jscpd.json`, the build-tool
-  wiring (tox env / pixi task / Makefile target / npm script), the wrapper
-  script under `tools/`, the CI wiring, and any mitigation-refactor commits
+- A feature branch with (as applicable): `.jscpd.json`, a pre-commit hook
+  or the build-tool wiring (tox env / pixi task / Makefile target / npm
+  script) with its wrapper script under `tools/`, the CI wiring, and any
+  mitigation-refactor commits
 - The duplication check passes when invoked the same way CI invokes it
 - A Markdown report (via the bundled `generate-report.py`) showing the
   before/after state
@@ -749,6 +825,9 @@ After completing the skill:
   Step 9's mitigation lands. annextube's `.jscpd.json` is the reference
   end-state (`threshold: 0`), reached only after a dedicated
   "Eliminate all code duplication" commit — not the starting point.
+- **Use what already runs checks** — with pre-commit present, a hook plus
+  whatever already runs pre-commit in CI is the whole wiring: no wrapper
+  script, target or new workflow.
 - **Keep tox.ini / Makefile / pixi.toml thin** — a `commands = bash
   tools/check-duplication.sh` line, never inlined multi-line logic.
 - **Re-verify masking hazards** (Step 0.3's audit) any time you find an
