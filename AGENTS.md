@@ -122,6 +122,9 @@ rewrite is safe).
 
 ## Other repo-wide conventions
 
+(Add new cross-cutting rules here as they emerge. Skill-specific rules
+belong in the individual `SKILL.md` files.)
+
 ### Skill versions
 
 A skill whose output records which version of the skill produced it declares
@@ -131,6 +134,3 @@ the same commit: MINOR for a changed or added step or section, PATCH for a
 clarification that changes nothing a run does, MAJOR when earlier reports can
 no longer be compared with new ones. Typo and pure wording fixes do not bump.
 The version is a label; consumers pin the `con/skills` commit.
-
-(Add new cross-cutting rules here as they emerge. Skill-specific rules
-belong in the individual `SKILL.md` files.)

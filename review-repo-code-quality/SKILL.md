@@ -2,7 +2,7 @@
 name: review-repo-code-quality
 version: 0.1.0
 description: Functionality-preserving code-quality review of a single repository — dead code, duplication, consolidation, cleanup, and items needing verification — written as a dated Markdown report with per-finding location, proposed change, safety confidence, and a verification command. Use when asked to review, audit, or assess the code quality or health of one codebase. For an organization of related repositories use review-org-code-quality instead.
-allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Agent
+allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Agent, Skill
 user-invocable: true
 ---
 
@@ -55,8 +55,9 @@ practice second.
 Run the project's own linter and test suite once to get a **baseline**
 (count of tests passing, lint clean or not), but only after the user has
 confirmed that executing this repository's tests or tooling is acceptable
-(ask via AskUserQuestion, unless a calling skill already obtained that
-consent; prefer a container, VM, or throwaway checkout). The same consent
+(ask via AskUserQuestion, unless a calling skill already answered for
+the user — consent given, or declined and not to be asked again; prefer
+a container, VM, or throwaway checkout). The same consent
 covers Step 2's tools that load the project's own config or plugins
 (`eslint` plugins, `knip`, a dependency install). Record the exact command.
 If the user declines, the review is read-only analysis: no
@@ -81,15 +82,17 @@ Breadth first, with tools, over the whole scope:
   so nothing (`.tmp/`, `.gitignore`, `.jscpd-report.md`) is written into
   the reviewed repository. That skill fetches jscpd with
   `npx --yes jscpd@latest` when none is installed; prefer an installed or
-  pinned jscpd and tell the user which was used. If jscpd cannot be
-  installed, search for repeated multi-line idioms by hand and say so in
-  Method & limits. Note where copies have **drifted**, since drifted
+  pinned jscpd, ask before letting it fetch one, and tell the user which
+  was used. If jscpd cannot be installed, search for repeated multi-line
+  idioms by hand and say so in Method & limits. Note where copies have **drifted**, since drifted
   copies are the expensive ones.
 - **Idiom drift:** run the project's own linter with an extended rule set
   (for `ruff`, e.g. `--select RET,SIM,C4,PIE,PLR` on top of the project's
   selection; `eslint` with `unicorn`/`sonarjs`) and read its output
-  rather than hand-grepping. Typical hits: assign-then-return,
-  unnecessary comprehensions, `pass` in non-empty bodies, `any()` as a
+  rather than hand-grepping. If execution consent was declined in Step 1,
+  skip the project's linter config and run a linter you invoke with your
+  own config instead (e.g. `ruff check --isolated --select …`).
+  Typical hits: assign-then-return, unnecessary comprehensions, `pass` in non-empty bodies, `any()` as a
   non-emptiness test, redundant type conversions, `for k in d.keys()`,
   inconsistent naming for the same concept, annotations that disagree
   with the returned type.
@@ -98,7 +101,9 @@ Breadth first, with tools, over the whole scope:
   imports where a public re-export exists, a declared hard dependency
   used in two places, …).
 - **Inert configuration:** verify empirically (run the tool, print the
-  resolved config) rather than by reading documentation.
+  resolved config) rather than by reading documentation. If execution
+  consent was declined in Step 1, read the config statically instead and
+  mark the item `not verified empirically` (Low confidence).
 
 ### Step 3 — Trace every candidate
 
@@ -204,7 +209,10 @@ change is undone by reverting only your own changes; never discard changes you
 did not make. Commit only if asked. Do not bump a version or write a changelog
 entry for a tests-only change unless the project's rules say to.
 
-Work group by group from "Recommended order of changes". After each group,
+Work group by group from "Recommended order of changes". Applying changes
+needs the same execution consent as Step 1; if it was declined or the
+baseline was not run, ask again before running any verification and say in
+the report which groups are unverified. After each group,
 run its verification and the baseline test command; the counts must match
 the baseline. Mark each finding `APPLIED` (or `PARTLY APPLIED` with the
 reason) in the report as you go. If the maintainer rejects a change,

@@ -2,7 +2,7 @@
 name: review-org-code-quality
 version: 0.1.0
 description: Audit code health across an organization-wide ecosystem of similarly styled, interconnected data/ML/ETL pipelines or repositories. Focuses on systemic risk (template drift, contract fragility, cross-repo duplication, blast radius, bus factor) rather than single-repo code smells, and writes a dated report. Use when asked to review, audit, or assess the health of a set of related repositories or pipelines. For one repository use review-repo-code-quality instead.
-allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Agent
+allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Agent, Skill
 user-invocable: true
 ---
 
@@ -60,7 +60,7 @@ Inputs you have:
 - Lineage or DAG dependency source, if any: {FILL}
 - Known incidents or pain points: {FILL}
 - Out of scope: {FILL}
-- May Phase 4 depth reviews execute those repositories' tests and tooling (yes / no / sandbox only): {FILL}
+- May Phase 4 depth reviews execute those repositories' tests and tooling (yes / no / sandbox only — "sandbox only" means a sandbox the user names, or a throwaway checkout you create, never the user's working tree): {FILL}
 
 Work in the phases below. At each phase, distinguish between what you OBSERVED (with file paths /
 line refs), what you INFERRED, and what you could NOT determine. Never fabricate a file reference.
@@ -86,8 +86,9 @@ Before judging anything, define what "correct" looks like in this ecosystem.
 
 ## Phase 2 — Per-pipeline scan (breadth)
 
-Score each repository 0–3 per dimension below (0 = absent/broken, 3 =
-works and is covered by tests or gates), **reading only**: every
+Score each repository 0–3 per dimension below (0 = absent/broken,
+1 = present but partial or unenforced, 2 = works but not covered by tests
+or gates, 3 = works and is covered by tests or gates), **reading only**: every
 dimension is scored from configuration, workflows, declarations, and
 source (orchestrator definitions, schema declarations, CI, IAM/secrets
 wiring, test layout, dead-code tool output). Nothing in this phase
@@ -121,7 +122,7 @@ Look across the matrix for **systemic** issues:
 
 1. **Drift clusters.** Which pipelines have diverged from the template, in what direction, and did divergences propagate by copy-paste? Group by "generation" — pipelines forked from the same ancestor often share the same bug.
 2. **Contract fragility.** For every edge in the graph: is the schema enforced on both sides, one side, or neither? Rank edges by (criticality × lack of enforcement).
-3. **Copy-paste logic across repos.** Run `analyze-duplicates` once over all repositories with `--cross-project` (from a scratch directory, `--output <scratch>/jscpd.md`, so nothing is written into the reviewed repos; that skill fetches jscpd with `npx --yes jscpd@latest` when none is installed — prefer an installed or pinned jscpd and say which was used) and group the hits into clusters. Each duplicate is a place a fix won't land; the recommendation is a shared-library helper plus a migration, not N tickets.
+3. **Copy-paste logic across repos.** Run `analyze-duplicates` once over all repositories with `--cross-project` (from a scratch directory, `--output <scratch>/jscpd.md`, so nothing is written into the reviewed repos; that skill fetches jscpd with `npx --yes jscpd@latest` when none is installed — prefer an installed or pinned jscpd, ask before letting it fetch one, and say which was used) and group the hits into clusters. Each duplicate is a place a fix won't land; the recommendation is a shared-library helper plus a migration, not N tickets.
 4. **Shared library blast radius.** What breaks if the shared lib ships a breaking change? Which pipelines are N versions behind and why? Does the shared layer itself have CI?
 5. **Failure propagation.** Trace a failure from a hub node downstream: does it cascade, stall, or silently produce stale data? Where are the circuit breakers?
 6. **Convention gaps.** Things the template *doesn't* specify that everyone solved differently (e.g. timezone handling, null semantics, late-arriving data, what a `limit` parameter means).
@@ -129,7 +130,7 @@ Look across the matrix for **systemic** issues:
 
 ## Phase 4 — Prioritize and report
 
-Score each finding: **Impact** (blast radius via graph) × **Likelihood** (evidence of recurrence, test coverage, change frequency), then rank by that score relative to **Effort to fix**. Separate into:
+Score each finding: **Impact** (blast radius via graph, 1–3) × **Likelihood** (evidence of recurrence, test coverage, change frequency, 1–3), then rank by that score relative to **Effort to fix** (S/M/L). Separate into:
 
 - **Fix now** — critical path + silent failure mode + no test.
 - **Fix systemically** — push into the template/shared lib so it lands everywhere.
@@ -143,7 +144,8 @@ its own report at that repository's default path), and link each report
 from "Per-repository notes". Ask before starting if the set is larger
 than five or the repositories are not the user's own. Its consent gate
 for executing a repository's tests and tooling is answered once, by the
-core prompt's input, for the whole depth set rather than per repository.
+core prompt's input, for the whole depth set rather than per repository;
+a "no" is passed down as "declined, do not ask again".
 Depth reviews are report-only (Step 5 is not run) unless the user asks
 for changes to be applied.
 
