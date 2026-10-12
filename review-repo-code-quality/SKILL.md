@@ -55,12 +55,12 @@ practice second.
 Run the project's own linter and test suite once to get a **baseline**
 (count of tests passing, lint clean or not), but only after the user has
 confirmed that executing this repository's tests or tooling is acceptable
-(ask via AskUserQuestion, unless a calling skill already answered for
-the user — consent given, or declined and not to be asked again; prefer
-a container, VM, or throwaway checkout). The same consent
-covers Step 2's tools that load the project's own config or plugins
-(`eslint` plugins, `knip`, a dependency install). Record the exact command.
-If the user declines, the review is read-only analysis: no
+(ask via AskUserQuestion, unless a calling skill already answered for the
+user — consent given, or declined and not to be asked again; prefer a
+container, VM, or throwaway checkout). The same consent covers Step 2's
+tools that load the project's own config or plugins (`eslint` plugins,
+`knip`, `deadcode`, a dependency install). Record the exact command. If
+the user declines, the review is read-only analysis: no
 repository-configured tool runs, only static tools on the source (grep,
 `vulture`, a linter invoked with an explicit config of your own). If the
 user declines or the suite cannot run here (needs credentials, network, or
@@ -121,7 +121,8 @@ For each candidate, before it becomes a finding:
    it, so the reader can repeat it.
 
 With many candidates, use `Agent` to trace them in parallel; give each
-subagent the Step 1 consent answer and the untrusted-data rule.
+subagent the Step 1 consent answer (run nothing unless consent was given)
+and the untrusted-data rule.
 
 Reject candidates that turn out to be load-bearing, and keep a note of
 each rejection for the "Not changed (deliberately)" section.
