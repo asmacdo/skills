@@ -1,6 +1,6 @@
 ---
 name: review-org-code-quality
-version: 1.0.0
+version: 0.1.0
 description: Audit code health across an organization-wide ecosystem of similarly styled, interconnected data/ML/ETL pipelines or repositories. Focuses on systemic risk (template drift, contract fragility, cross-repo duplication, blast radius, bus factor) rather than single-repo code smells, and writes a dated report. Use when asked to review, audit, or assess the health of a set of related repositories or pipelines. For one repository use review-repo-code-quality instead.
 allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Agent
 user-invocable: true
@@ -60,6 +60,7 @@ Inputs you have:
 - Lineage or DAG dependency source, if any: {FILL}
 - Known incidents or pain points: {FILL}
 - Out of scope: {FILL}
+- May Phase 4 depth reviews execute those repositories' tests and tooling (yes / no / sandbox only): {FILL}
 
 Work in the phases below. At each phase, distinguish between what you OBSERVED (with file paths /
 line refs), what you INFERRED, and what you could NOT determine. Never fabricate a file reference.
@@ -78,7 +79,7 @@ Before judging anything, define what "correct" looks like in this ecosystem.
 
 ## Phase 1 — Map the graph
 
-- Build an inventory: pipeline name, owner/team, orchestrator, last meaningful commit, shared-lib version, upstream inputs, downstream consumers, SLA/criticality if known. Start from the `scan-projects` skill (repo list, language, license, last commit as `projects.tsv`) when the repositories are checked out side by side, and `github-project-status` for commit/release/PR activity per repository; add the pipeline-specific columns by hand.
+- Build an inventory: pipeline name, owner/team, orchestrator, last meaningful commit, shared-lib version, upstream inputs, downstream consumers, SLA/criticality if known. Start from the `scan-projects` skill's metadata scan only (repo list, language, license, URL as `projects.tsv`; skip its summary pass) when the repositories are checked out side by side. Its `scan.py` scans and writes `projects.tsv` to the current directory, so run it from the parent directory holding the checkouts (never from inside a reviewed repository), calling `scan.py` from wherever `scan-projects` is installed rather than the `~/.claude/skills/` path its instructions assume. Use `github-project-status` for commit/release/PR activity and staleness per repository. Add the pipeline-specific columns by hand.
 - Derive edges from: orchestrator dependencies, table/topic/bucket reads and writes, import graphs, cross-repo API calls, machine-readable declarations (`cache.toml`, `dbt` sources, …) when they exist — prefer declared edges to guessed ones and say which you used.
 - Compute for each node: **fan-in, fan-out, depth**, and whether it's on the path to anything business-critical.
 - Flag: orphaned pipelines (no consumers, still running), hub nodes (high fan-out), long chains (depth well above the ecosystem median; state the threshold you used), cycles. Distinguish an orphan from a *product* — a leaf with external consumers is not a candidate for retirement.
@@ -111,7 +112,7 @@ repository when it is long); each matrix cell links to it.
 | **Dependency health** | Shared-lib version lag, pinned vs. floating deps, known CVEs, EOL runtimes. |
 | **Secrets & access** | Hardcoded credentials, over-broad IAM/service accounts, secrets in logs. |
 | **Ownership & docs** | CODEOWNERS / on-call, README accuracy, runbook exists. |
-| **Dead code & config** | Unused DAG tasks, stuck feature flags, stale env-specific branches, lint-ignore entries for rules never selected. Use a dead-code tool (`vulture`, `knip`, …) plus grep; read-only. |
+| **Dead code & config** | Unused DAG tasks, stuck feature flags, stale env-specific branches, lint-ignore entries for rules never selected. Use grep, and a dead-code tool (`vulture`, …) only in static mode: no dependency install and no config that executes repository code. Anything else waits for Phase 4. |
 | **Change velocity** | Commit recency, PR review depth, whether it's a "nobody touches it" pipeline. |
 
 ## Phase 3 — Cross-cutting analysis (this is where the value is)
@@ -138,10 +139,13 @@ Score each finding: **Impact** (blast radius via graph) × **Likelihood** (evide
 Then pick the **depth set**: the hub nodes, the shared library/template,
 and any repository whose matrix row drove a "Fix now" item — usually two
 to five. Run `review-repo-code-quality` in full on each (its own Inputs,
-its own consent gate for executing that repository's tests, its own
-report at that repository's default path), and link each report from
-"Per-repository notes". Ask before starting if the set is larger than
-five or the repositories are not the user's own.
+its own report at that repository's default path), and link each report
+from "Per-repository notes". Ask before starting if the set is larger
+than five or the repositories are not the user's own. Its consent gate
+for executing a repository's tests and tooling is answered once, by the
+core prompt's input, for the whole depth set rather than per repository.
+Depth reviews are report-only (Step 5 is not run) unless the user asks
+for changes to be applied.
 
 ## Where to write the report
 

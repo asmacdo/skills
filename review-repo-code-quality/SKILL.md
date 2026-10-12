@@ -1,6 +1,6 @@
 ---
 name: review-repo-code-quality
-version: 1.0.0
+version: 0.1.0
 description: Functionality-preserving code-quality review of a single repository — dead code, duplication, consolidation, cleanup, and items needing verification — written as a dated Markdown report with per-finding location, proposed change, safety confidence, and a verification command. Use when asked to review, audit, or assess the code quality or health of one codebase. For an organization of related repositories use review-org-code-quality instead.
 allowed-tools: Bash, Read, Write, Glob, Grep, AskUserQuestion, Agent
 user-invocable: true
@@ -54,11 +54,17 @@ practice second.
 
 Run the project's own linter and test suite once to get a **baseline**
 (count of tests passing, lint clean or not), but only after the user has
-confirmed that executing this repository's code is acceptable (ask via
-AskUserQuestion; prefer a container, VM, or throwaway checkout). Record the
-exact command. If the user declines, or the suite cannot run here (needs
-credentials, network, or services), record `baseline not run: <reason>` and
-rate any finding whose safety depends on it **Low** confidence.
+confirmed that executing this repository's tests or tooling is acceptable
+(ask via AskUserQuestion, unless a calling skill already obtained that
+consent; prefer a container, VM, or throwaway checkout). The same consent
+covers Step 2's tools that load the project's own config or plugins
+(`eslint` plugins, `knip`, a dependency install). Record the exact command.
+If the user declines, the review is read-only analysis: no
+repository-configured tool runs, only static tools on the source (grep,
+`vulture`, a linter invoked with an explicit config of your own). If the
+user declines or the suite cannot run here (needs credentials, network, or
+services), record `baseline not run: <reason>` and rate any finding whose
+safety depends on it **Low** confidence.
 
 ### Step 2 — Mechanical sweep
 
@@ -191,9 +197,13 @@ be verified, where this report lives for the next run.}
 
 ### Step 5 — Apply changes (only if asked)
 
-Refuse to start on a dirty tree. Work on a new branch (or `git worktree`) so a
-rejected change is undone by reverting your own changes only; never discard
-changes you did not make. Commit only if asked.
+Before changing anything: `git status --porcelain` must be empty (this applies
+to applying changes only; reviewing a dirty tree is fine). Work on a new branch
+(`git switch -c quality-review/<date>`) or a `git worktree`, so a rejected
+change is undone by reverting only your own changes; never discard changes you
+did not make. Commit only if asked. Do not bump a version or write a changelog
+entry for a tests-only change unless the project's rules say to.
+
 Work group by group from "Recommended order of changes". After each group,
 run its verification and the baseline test command; the counts must match
 the baseline. Mark each finding `APPLIED` (or `PARTLY APPLIED` with the
