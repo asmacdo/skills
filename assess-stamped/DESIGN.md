@@ -7,6 +7,7 @@ Scope decisions for the first version, and the work deliberately left for separa
 
 `assess-stamped` answers three questions about one target: what does it do (or plan to do), how STAMPED is it, and what gaps remain.
 It reads, it does not modify.
+Its one output, the report file, is written outside the target (current directory by default, or a path the user names), so the assessed project is never touched and the report survives to be compared with a later one.
 It is the measurement half of the pair proposed in stamped-principles/stamped-agent-skills#3; `align-stamped` is the intervention half and calls this skill first and last.
 
 Out of scope here, tracked in that issue: creating new projects, ReproNim-specific variants, and any full research-loop automation.

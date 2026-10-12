@@ -5,7 +5,7 @@ description: >
   what it does or plans to do, how STAMPED it is item by item against the published checklist, and which gaps remain.
   Use when the user asks how reproducible, STAMPED, or shareable a project is, before sharing or publishing a research object, or as the first step of align-stamped.
   Produces a markdown assessment with one yes/no/unknown answer and evidence per checklist item.
-allowed-tools: Read Grep Glob Bash WebFetch
+allowed-tools: Read Grep Glob Bash WebFetch Write
 metadata:
   version: "0.1.0"
   checklist-version: "0.3.1"
@@ -97,7 +97,10 @@ After the items, list the gaps:
 
 ## Output
 
-Write the report to `stamped-assessment.md` at the target root (or the current directory for a URL target), untracked; the user decides whether to commit it.
+The report is the only file this skill writes, and it never goes inside the target.
+Write it to the path the user names, or by default to `stamped-assessment-<target-name>-<YYYY-MM-DD>.md` in the current directory.
+If the current directory is inside the target, ask the user where to write it instead.
+Tell the user the path; `align-stamped` and later re-assessments compare against it.
 Use exactly this structure so reports are comparable across projects and over time:
 
 ```markdown
