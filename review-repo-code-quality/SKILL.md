@@ -71,27 +71,31 @@ safety depends on it **Low** confidence.
 
 Breadth first, with tools, over the whole scope:
 
-- **Dead code:** start with a dead-code tool for the language (`vulture`
-  for Python, `knip` for JS/TS, `deadcode` for Go, …) and confirm each hit
-  with `grep -rn` across source, tests, scripts, configs, and workflows —
-  a name patched by a test is not dead. Also: unreachable branches,
+- **Dead code:** start with a static dead-code tool (`vulture` for
+  Python; `knip` for JS/TS or `deadcode` for Go only with Step 1
+  consent, since they load the project's config or build it) and confirm
+  each hit with `grep -rn` across source, tests, scripts, configs, and
+  workflows — a name patched by a test is not dead. Also: unreachable branches,
   guards that can never fire, lint-ignore entries for rules the selected
   rule set never reaches, configuration that is never consulted.
 - **Duplication:** run the `analyze-duplicates` skill (jscpd) if
   available — from a scratch directory, with `--output <scratch>/jscpd.md`,
   so nothing (`.tmp/`, `.gitignore`, `.jscpd-report.md`) is written into
-  the reviewed repository. That skill fetches jscpd with
-  `npx --yes jscpd@latest` when none is installed; prefer an installed or
-  pinned jscpd, ask before letting it fetch one, and tell the user which
-  was used. If jscpd cannot be installed, search for repeated multi-line
-  idioms by hand and say so in Method & limits. Note where copies have
+  the reviewed repository. Its availability check itself falls back to
+  `npx --yes jscpd@latest`, so if `command -v jscpd` finds nothing, ask
+  before running the skill at all; prefer an installed or pinned jscpd
+  and tell the user which was used. If that is declined or jscpd cannot
+  be installed, search for repeated multi-line idioms by hand and say so
+  in Method & limits. Note where copies have
   **drifted**, since drifted copies are the expensive ones.
 - **Idiom drift:** run the project's own linter with an extended rule set
   (for `ruff`, e.g. `--select RET,SIM,C4,PIE,PLR` on top of the project's
   selection; `eslint` with `unicorn`/`sonarjs`) and read its output
   rather than hand-grepping. If execution consent was declined in Step 1,
   skip the project's linter config and run a linter you invoke with your
-  own config instead (e.g. `ruff check --isolated --select …`).
+  own config instead (e.g. `ruff check --isolated --select …`), and skip
+  `eslint` and other plugin-based linters entirely, since they load
+  plugins from the repository's `node_modules`.
   Typical hits: assign-then-return, unnecessary comprehensions, `pass`
   in non-empty bodies, `any()` as a non-emptiness test, redundant type
   conversions, `for k in d.keys()`, inconsistent naming for the same
@@ -113,8 +117,11 @@ For each candidate, before it becomes a finding:
    references (`getattr`, string-keyed registries, entry points).
 2. Decide whether a fix is **behavior-preserving**. If it is not, it
    belongs under **Needs Verification**, not under a change category.
-3. Write down the search or experiment that proves it, so the reader can
-   repeat it.
+3. Write down the search or (with Step 1 consent) experiment that proves
+   it, so the reader can repeat it.
+
+With many candidates, use `Agent` to trace them in parallel; give each
+subagent the Step 1 consent answer and the untrusted-data rule.
 
 Reject candidates that turn out to be load-bearing, and keep a note of
 each rejection for the "Not changed (deliberately)" section.
@@ -211,8 +218,9 @@ entry for a tests-only change unless the project's rules say to.
 
 Work group by group from "Recommended order of changes". Applying changes
 needs the same execution consent as Step 1; if it was declined or the
-baseline was not run, ask again before running any verification and say in
-the report which groups are unverified. After each group,
+baseline was not run, ask again before running any verification (a request
+to apply changes is a fresh decision, even after a caller's "do not ask
+again") and say in the report which groups are unverified. After each group,
 run its verification and the baseline test command; the counts must match
 the baseline. Mark each finding `APPLIED` (or `PARTLY APPLIED` with the
 reason) in the report as you go. If the maintainer rejects a change,
