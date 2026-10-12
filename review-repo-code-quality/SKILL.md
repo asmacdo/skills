@@ -84,16 +84,16 @@ Breadth first, with tools, over the whole scope:
   `npx --yes jscpd@latest` when none is installed; prefer an installed or
   pinned jscpd, ask before letting it fetch one, and tell the user which
   was used. If jscpd cannot be installed, search for repeated multi-line
-  idioms by hand and say so in Method & limits. Note where copies have **drifted**, since drifted
-  copies are the expensive ones.
+  idioms by hand and say so in Method & limits. Note where copies have
+  **drifted**, since drifted copies are the expensive ones.
 - **Idiom drift:** run the project's own linter with an extended rule set
   (for `ruff`, e.g. `--select RET,SIM,C4,PIE,PLR` on top of the project's
   selection; `eslint` with `unicorn`/`sonarjs`) and read its output
   rather than hand-grepping. If execution consent was declined in Step 1,
   skip the project's linter config and run a linter you invoke with your
   own config instead (e.g. `ruff check --isolated --select …`).
-  Typical hits: assign-then-return, unnecessary comprehensions, `pass` in non-empty bodies, `any()` as a
-  non-emptiness test, redundant type conversions, `for k in d.keys()`,
+  Typical hits: assign-then-return, unnecessary comprehensions, `pass`
+  in non-empty bodies, `any()` as a non-emptiness test, redundant type conversions, `for k in d.keys()`,
   inconsistent naming for the same concept, annotations that disagree
   with the returned type.
 - **Project-rule drift:** anything Step 1's rules forbid that the code
