@@ -93,9 +93,9 @@ Breadth first, with tools, over the whole scope:
   skip the project's linter config and run a linter you invoke with your
   own config instead (e.g. `ruff check --isolated --select …`).
   Typical hits: assign-then-return, unnecessary comprehensions, `pass`
-  in non-empty bodies, `any()` as a non-emptiness test, redundant type conversions, `for k in d.keys()`,
-  inconsistent naming for the same concept, annotations that disagree
-  with the returned type.
+  in non-empty bodies, `any()` as a non-emptiness test, redundant type
+  conversions, `for k in d.keys()`, inconsistent naming for the same
+  concept, annotations that disagree with the returned type.
 - **Project-rule drift:** anything Step 1's rules forbid that the code
   does anyway (function-local imports without a cycle to break, private
   imports where a public re-export exists, a declared hard dependency
