@@ -7,6 +7,7 @@ software project maintenance, triage, and automation.
 
 | Skill | Description |
 |-------|-------------|
+| [align-stamped](align-stamped/) | Align a project with the [STAMPED](https://stamped-principles.org/) principles: assess it first (`assess-stamped`), write a proportionate STAMPED section into its agent harness (`AGENTS.md` / `CLAUDE.md` / spec-kit constitution), then propose options for each gap without prescribing tools. |
 | [analyze-duplicates](analyze-duplicates/) | Detect code and documentation duplication using jscpd, generate a Markdown report with collapsible `<details>` sections (suitable for GitHub/Gitea issues), and propose a mediation plan with refactoring strategies. |
 | [assess-stamped](assess-stamped/) | Assess a project against the [STAMPED](https://stamped-principles.org/) checklist: profile what it does and plans to do, answer every checklist item yes/no/unknown with evidence, and list the remaining gaps, MUST items first. Read-only; writes a markdown report. |
 | [github-project-status](github-project-status/) | Assess whether a GitHub project is healthy, in maintenance mode, stagnant, or abandoned. Checks commits, releases, issues, PRs, forks, and package registries to produce a structured status report. |
