@@ -2,46 +2,42 @@
 
 Scope decisions for the first version, and the work deliberately left for separate, drop-in follow-ups.
 `SKILL.md` stays lean because every line of it is loaded into the agent's context; the reasoning lives here.
+This file also holds the notes shared with [`align-stamped`](../align-stamped/DESIGN.md).
 
 ## Scope
 
 `assess-stamped` answers three questions about one target: what does it do (or plan to do), how STAMPED is it, and what gaps remain.
-It reads, it does not modify.
-Its one output, the report file, is written outside the target (current directory by default, or a path the user names), so the assessed project is never touched and the report survives to be compared with a later one.
-It is the measurement half of the pair proposed in stamped-principles/stamped-agent-skills#3; `align-stamped` is the intervention half and calls this skill first and last.
+It never modifies the target; its one output, the report, is written outside it so it survives to be compared with a later one.
+It is the measurement half of the pair proposed in [stamped-principles/stamped-agent-skills#3](https://github.com/stamped-principles/stamped-agent-skills/issues/3); `align-stamped` is the intervention half and calls this skill first and last.
 
-Out of scope here, tracked in that issue: creating new projects, ReproNim-specific variants, and any full research-loop automation.
-
-The skills live in con/skills first, to reuse its validation CI and conventions and to be used by the people writing them; whatever proves useful can be separated into stamped-principles/stamped-agent-skills later, possibly with an automatic sync.
+Both skills live in con/skills first, to reuse its validation CI and conventions and to be used by the people writing them.
+Whatever proves useful can move to [stamped-principles/stamped-agent-skills](https://github.com/stamped-principles/stamped-agent-skills) later, possibly with an automatic sync.
 
 ## Decisions
 
 1. **No condensed STAMPED context in the skill.** The skill links to the published principles JSON, checklist JSON, paper, and examples site, pinned by tag, and tells the agent to read them.
-   Three earlier assessors each paraphrased the normative statements inline and each drifted from the published codes (`stamped-examples` `/stamped-assess`, the morphometrics `references/assessment.md`, and the July 2026 draft in stamped-principles/stamped-agent-skills).
-   A condensed `stamped-context` that is generated from the JSON sources, so it cannot drift, is a separate optimization; until it exists, linking is the version that cannot be wrong.
-2. **One answer per checklist item, keyed by the checklist's stable item ID, with evidence for every answer.** The checklist web UI stores `{value: yes | no | null, reason}` per item ID, but it only shows the reason field for a `no` ("Reason for not meeting requirement").
-   An assessment needs the evidence behind a `yes` just as much, so the report is plain markdown rather than that schema, and is not blocked on changing it.
+   Three earlier assessors each paraphrased the normative statements inline and each drifted from the published codes: [stamped-examples `/stamped-assess`](https://github.com/stamped-principles/stamped-examples/blob/main/.claude/commands/stamped-assess.md), [the morphometrics `references/assessment.md`](https://github.com/STAMPED-dl-morphometrics-biases/STAMPED-dl_morphometrics_biases/blob/main/skills/stamped-neuroimaging-analysis/references/assessment.md), and the July 2026 draft in stamped-agent-skills.
+   A condensed context generated from the JSON sources, so it cannot drift, is a separate optimization.
+2. **One answer per checklist item, keyed by the checklist's stable item ID, with evidence for every answer.** The [checklist app](https://github.com/stamped-principles/stamped-checklist) stores `{value: yes | no | null, reason}` per item ID but only shows the reason for a `no`.
+   An assessment needs the evidence behind a `yes` as much, so the report is plain markdown rather than that schema, and is not blocked on changing it.
    `unknown` maps to `null`.
 3. **Profile before items.** The checklist does not carry the project's goals, but the right reading of every answer depends on them.
-   The profile's "emphasis" is the lightweight form of the `rubric` record in stamped-principles/stamped-skills-assessment (per-principle priority and direction); it is prose here so the two can converge later without this skill committing to a 0.1 schema.
-4. **Evidence names its strength.** Inspection (a definition was read) and execution (it was run and observed) are reported as different things, following the distinction in stamped-skills-assessment's design.
-   Truly settling stampedness can require running the target, so execution is not excluded, but target code is untrusted and costly to run.
-   Level 1 (inspection) is unattended and never runs target code, which makes it safe on any target and comparable across runs; level 2 (guided execution) works through the `unknown` items with the user approving each command.
+   The profile's "emphasis" is a prose form of the `rubric` record in [stamped-skills-assessment](https://github.com/stamped-principles/stamped-skills-assessment) (per-principle priority and direction), so the two can converge later without committing to its 0.1 schema.
+4. **Two levels of evidence.** Truly settling stampedness can require running the target, but target code is untrusted and costly to run.
+   Level 1 (inspection) is unattended and never runs target code, which makes it safe on any target and comparable across runs.
+   Level 2 (guided execution) works through the `unknown` items with the user approving each command.
 5. **Gaps name what and why, never which tool.** Options are delegated to the examples site's per-principle pages and the paper's sample-tools table, both of which list several tools per principle.
-6. **No `allowed-tools`, in either skill.** The field grants pre-approval while the skill is active; it restricts nothing.
-   A shared skill that sets it widens the installing user's permissions on their behalf, so these skills defer to the user's own permission setup and carry their safety rules in the text.
-   Four skills on con/skills `master` already omit the field.
-   The separator question for skills that do set it is https://github.com/con/skills/issues/25.
-7. **Top-level `version:`**, the field APM reads, per the "Skill versions" rule proposed in https://github.com/con/skills/pull/16; the report records it.
+6. **No `allowed-tools`, in either skill.** The field grants pre-approval while the skill is active and restricts nothing, so a shared skill that sets it widens the installing user's permissions.
+   These skills defer to the user's permission setup and carry their safety rules in the text; four skills on `master` already omit the field.
+   The separator question for skills that do set it is [con/skills#25](https://github.com/con/skills/issues/25).
+7. **Top-level `version:`**, the field APM reads, per the "Skill versions" rule proposed in [con/skills#16](https://github.com/con/skills/pull/16); the report records it.
 
 ## Deferred, each as a separate drop-in
 
-These are not skipped because they are wrong; they are scoped out so this skill can land small and be measured, and each is shaped so it can be added without changing the report format above.
+Scoped out so this skill can land small and be measured; each can be added without changing the report format.
 
-- **Structured output.** The report is markdown so a human can read and review it today.
-  A converter from the fixed markdown structure to JSON keyed by item ID is a small script; the format in `SKILL.md` was fixed with that in mind.
-- **Checklist share link.** The web UI's link is `checklist=<v>&responses_version=<v>&format=3&responses=<base64 JSON>` with `{checklist_version, responses: {<item-id>: {value, reason}}}` (reason truncated at 250 characters).
-  Emitting it is the same converter plus one encoding step; the evidence behind `yes` answers would be dropped until the UI carries it.
-- **stamped-skills-assessment record.** That repository's `assessment` record wants the same per-item judgments plus declared activities and observations; emitting it is an adapter over the structured output, to be written once that schema is past its pilot.
-- **FAIR.** The stamped-examples assessor also rates F, A, I, R. Kept out so this skill measures one thing.
-- **Generated normative context (`stamped-context`).** See decision 1.
+- **Structured output and the checklist share link.** A converter from the fixed markdown to JSON keyed by item ID, then the app's `format=3` URL; evidence for `yes` answers is dropped there until the app carries it.
+- **A stamped-skills-assessment record**, as an adapter over the structured output once that schema is past its pilot.
+- **FAIR**, which the stamped-examples assessor also rates; kept out so this skill measures one thing.
+- **A generated normative context**; see decision 1.
+- **Creating new projects, ReproNim-specific variants, and full research-loop automation**, tracked in stamped-agent-skills#3 and planned in [con/skills#24](https://github.com/con/skills/pull/24).
