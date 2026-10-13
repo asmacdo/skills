@@ -26,6 +26,11 @@ The skills live in con/skills first, to reuse its validation CI and conventions 
    The profile's "emphasis" is the lightweight form of the `rubric` record in stamped-principles/stamped-skills-assessment (per-principle priority and direction); it is prose here so the two can converge later without this skill committing to a 0.1 schema.
 4. **Evidence names its strength.** Inspection (a definition was read) and execution (it was run and observed) are reported as different things, following the distinction in stamped-skills-assessment's design.
 5. **Gaps name what and why, never which tool.** Options are delegated to the examples site's per-principle pages and the paper's sample-tools table, both of which list several tools per principle.
+6. **No `allowed-tools`, in either skill.** The field grants pre-approval while the skill is active; it restricts nothing.
+   A shared skill that sets it widens the installing user's permissions on their behalf, so these skills defer to the user's own permission setup and carry their safety rules in the text.
+   Four skills on con/skills `master` already omit the field.
+   The separator question for skills that do set it is https://github.com/con/skills/issues/25.
+7. **Top-level `version:`**, the field APM reads, per the "Skill versions" rule proposed in https://github.com/con/skills/pull/16; the report records it.
 
 ## Deferred, each as a separate drop-in
 

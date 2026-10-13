@@ -4,10 +4,8 @@ description: >
   Align an existing project with the STAMPED principles by baking them into its meta-architecture: the agent-instruction files, constitution, and skills that shape every later session.
   Use when the user asks to make a project STAMPED, add STAMPED to it, make it reproducible or shareable, or set up its AGENTS.md / CLAUDE.md / spec-kit constitution with reproducibility in mind.
   Assesses first (assess-stamped), then writes a proportionate STAMPED section into the harness, then proposes options for each gap without prescribing tools.
-allowed-tools: Read Grep Glob Bash Edit Write WebFetch
-metadata:
-  version: "0.1.0"
-  last-reviewed: "2026-10-12"
+version: 0.1.0
+user-invocable: true
 ---
 
 # Align a project with STAMPED

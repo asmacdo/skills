@@ -5,12 +5,8 @@ description: >
   what it does or plans to do, how STAMPED it is item by item against the published checklist, and which gaps remain.
   Use when the user asks how reproducible, STAMPED, or shareable a project is, before sharing or publishing a research object, or as the first step of align-stamped.
   Produces a markdown assessment with one yes/no/unknown answer and evidence per checklist item.
-allowed-tools: Read Grep Glob Bash WebFetch Write
-metadata:
-  version: "0.1.0"
-  checklist-version: "0.3.1"
-  principles-version: "0.2.0"
-  last-reviewed: "2026-10-12"
+version: 0.1.0
+user-invocable: true
 ---
 
 # Assess a project against STAMPED
