@@ -25,6 +25,8 @@ The skills live in con/skills first, to reuse its validation CI and conventions 
 3. **Profile before items.** The checklist does not carry the project's goals, but the right reading of every answer depends on them.
    The profile's "emphasis" is the lightweight form of the `rubric` record in stamped-principles/stamped-skills-assessment (per-principle priority and direction); it is prose here so the two can converge later without this skill committing to a 0.1 schema.
 4. **Evidence names its strength.** Inspection (a definition was read) and execution (it was run and observed) are reported as different things, following the distinction in stamped-skills-assessment's design.
+   Truly settling stampedness can require running the target, so execution is not excluded, but target code is untrusted and costly to run.
+   Level 1 (inspection) is unattended and never runs target code, which makes it safe on any target and comparable across runs; level 2 (guided execution) works through the `unknown` items with the user approving each command.
 5. **Gaps name what and why, never which tool.** Options are delegated to the examples site's per-principle pages and the paper's sample-tools table, both of which list several tools per principle.
 6. **No `allowed-tools`, in either skill.** The field grants pre-approval while the skill is active; it restricts nothing.
    A shared skill that sets it widens the installing user's permissions on their behalf, so these skills defer to the user's own permission setup and carry their safety rules in the text.
@@ -41,7 +43,5 @@ These are not skipped because they are wrong; they are scoped out so this skill 
 - **Checklist share link.** The web UI's link is `checklist=<v>&responses_version=<v>&format=3&responses=<base64 JSON>` with `{checklist_version, responses: {<item-id>: {value, reason}}}` (reason truncated at 250 characters).
   Emitting it is the same converter plus one encoding step; the evidence behind `yes` answers would be dropped until the UI carries it.
 - **stamped-skills-assessment record.** That repository's `assessment` record wants the same per-item judgments plus declared activities and observations; emitting it is an adapter over the structured output, to be written once that schema is past its pilot.
-- **Hands-on validation phase.** Cloning, building, and executing the target to turn inspection evidence into execution evidence, as `/stamped-assess` in stamped-examples offers as its Phase 2.
-  Costly and environment-dependent; a later opt-in step that only upgrades evidence strength, never the report structure.
 - **FAIR.** The stamped-examples assessor also rates F, A, I, R. Kept out so this skill measures one thing.
 - **Generated normative context (`stamped-context`).** See decision 1.
