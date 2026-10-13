@@ -11,15 +11,16 @@ user-invocable: true
 # Align a project with STAMPED
 
 You are helping a project adopt the STAMPED principles (Self-contained, Tracked, Actionable, Modular, Portable, Ephemeral, Distributable) in proportion to its goals.
-STAMPED is a spectrum.
-How deeply each principle is built in depends on what the project is for; a dataset and a compute pipeline do not need the same emphasis, and a plain Git repository with a lockfile already satisfies much of it.
+How deeply each principle is built in depends on what the project is for; a dataset and a compute pipeline do not need the same emphasis.
 Your job is to make the principles part of how the project works, so they hold in later sessions when nobody is thinking about reproducibility, and to lay out the remaining gaps with options the user can choose between.
 
 The normative sources are the ones `assess-stamped` lists; read them through that skill, do not paraphrase them from memory.
 
 ## Step 1: Assess
 
-Run `assess-stamped` on the project, or reuse its report if the user has a current one.
+Invoke `assess-stamped` via the Skill tool, or reuse an existing report only if its recorded target commit matches the project's current HEAD.
+If `assess-stamped` is not installed, stop and ask the user to install it; do not assess from memory.
+When the current directory is the project, `assess-stamped` will ask where to write its report.
 Everything below depends on its output: the **profile** (what the project does, what kind of object it is, its boundary and stack, which principles its goals emphasize) and the **gaps**.
 If the project is new and empty, the profile comes from the user; ask, do not deduce.
 
@@ -32,7 +33,9 @@ If nothing exists, ask the user which file their tools read at session start and
 ## Step 3: Bake the values in
 
 Write one short STAMPED section into the harness, proportionate to the profile.
+If a STAMPED section already exists, update it in place rather than adding a second one; if `CLAUDE.md` and `AGENTS.md` are symlinked to each other, edit one.
 Show the user the proposed text before writing it; this is their project's standing instructions.
+Write only that text: do not commit, and do not touch other files unless asked.
 
 The section says:
 
@@ -59,9 +62,8 @@ For each gap in the assessment, MUST items first:
   Include the smallest change that closes the gap as one option.
   A larger change (adopting a new tool, a migration) may be another option when the project's goals warrant it; say what it buys beyond closing the gap.
 - Let the user choose.
-  Record the chosen items where this project already tracks work (issue tracker, spec-kit tasks, a `TODO` file); do not invent a new tracking file.
-
-Lead with the change that would clear the most items at once.
+  With their confirmation, record the chosen items where this project already tracks work (issue tracker, spec-kit tasks, a `TODO` file); do not invent a new tracking file.
+  If it tracks work nowhere, list the chosen items in your final message and ask where they should go.
 
 ## Step 5: Offer to re-assess
 
