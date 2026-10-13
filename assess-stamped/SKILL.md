@@ -13,7 +13,7 @@ user-invocable: true
 
 You are producing an honest, evidence-based assessment of one target against the STAMPED principles (Self-contained, Tracked, Actionable, Modular, Portable, Ephemeral, Distributable).
 The goal is an accurate picture of where the project stands, not a high score.
-Absence of evidence is a `no` (or an `unknown` that names what would settle it), never a `yes`.
+Absence of evidence is never a `yes`.
 
 ## Normative sources
 
@@ -63,12 +63,13 @@ A wrong profile makes every answer below wrong.
 
 ## Step 2: Answer every checklist item
 
-Walk every item in the checklist JSON, in order, including items that seem not to apply.
+Walk every item at every requirement level (MUST, SHOULD, MAY) in the checklist JSON, in order, including items that seem not to apply.
 For each item give:
 
 - **Answer:** `yes`, `no`, or `unknown`.
-  `unknown` must say what inspection or execution would settle it.
-  A verdict may be scoped in the reason ("yes by design; one tracked script hardcodes `/home/...`"), but the answer itself is one word.
+  `no` means you looked where the evidence would be and it is absent or contradicts the item.
+  `unknown` means you could not look: it needs execution you may not do at this level, or can only be checked on a produced instance; say what would settle it.
+  A verdict may be scoped in the evidence ("yes by design; one tracked script hardcodes `/home/...`"), but the answer itself is one word.
 - **Evidence:** file paths, commit hashes, commands you ran and their results, or a quoted line.
   Label each piece of evidence as **inspection** (you read it, or ran a read-only command of your own such as `git ls-files`) or **execution** (target code ran and you observed the result).
   Both count; they support different claims.
@@ -84,8 +85,6 @@ Assessment has two levels:
    For each, propose the exact command, where it runs (a throwaway clone, a container), what it settles, and what it costs; run only what the user approves.
    Update those answers and mark them as level 2 evidence.
 
-Before writing a `no`, search the issue tracker for that specific gap (a keyword search, not reading every issue): a known gap is cited by issue number, not rediscovered.
-
 Do not inflate.
 "Partially" is a `no` with an explanation of what is in place.
 A MUST item that is `no` stays `no` regardless of how good the rest is.
@@ -94,24 +93,25 @@ A MUST item that is `no` stays `no` regardless of how good the rest is.
 
 After the items, list the gaps:
 
-- MUST items answered `no` first, then SHOULD, then MAY.
+- MUST items answered `no` first, then MUST `unknown` items with what would settle them, then SHOULD, then MAY.
 - For each, say **what** is missing and **why it matters to this project** given the profile; lead with the change that would clear the most items at once.
+- For each MUST gap, if the project has a reachable issue tracker, run one keyword search for it (e.g. `gh issue list --search`) and cite a matching issue by number rather than rediscovering a known gap.
 - Do not prescribe tools.
   The project's recorded stack comes first; where the stack has nothing for a job, point at the examples site's page for that principle and the paper's sample-tools table, which list several options per principle.
 
 ## Output
 
 The report is the only file this skill writes, and it never goes inside the target.
-Write it to the path the user names, or by default to `stamped-assessment-<target-name>-<YYYY-MM-DD>.md` in the current directory.
+Write it to the path the user names, or by default to `stamped-assessment-<target-name>-<YYYY-MM-DD>.md` in the current directory, with `<target-name>` reduced to `[A-Za-z0-9._-]`.
 If the current directory is inside the target, ask the user where to write it instead.
-Tell the user the path; `align-stamped` and later re-assessments compare against it.
+Never overwrite an existing report; ask.
 Use exactly this structure so reports are comparable across projects and over time:
 
 ```markdown
 # STAMPED assessment
 
 - Target: <URL or path> @ <commit / version / snapshot date>
-- Assessed: <date>, by <tool + model>, assess-stamped <skill version>
+- Assessed: <date>, by <tool + model>, assess-stamped <skill version>, level 1 | level 1 + 2
 - Checklist: <version>; principles: <version>
 
 ## Profile
@@ -122,12 +122,11 @@ Use exactly this structure so reports are comparable across projects and over ti
 
 ### MUST
 
-#### stamped-checklist:must/001 (S.1)
+#### <item id exactly as in the JSON> (<principle codes of the item's entry, e.g. T.1, T.3, T.5>)
 - Question: <item text verbatim from the checklist>
 - Answer: yes | no | unknown
-- Evidence: <...; inspection or execution>
+- Evidence: <...; inspection, or execution (level 2)>
 
-#### stamped-checklist:must/002 (S.1)
 ...
 
 ### SHOULD
@@ -138,13 +137,12 @@ Use exactly this structure so reports are comparable across projects and over ti
 
 ## Gaps
 
-1. <MUST first; what, why it matters here, highest leverage first>
+1. <MUST `no`, then MUST `unknown`, ...; what, why it matters here, highest leverage first>
 ```
 
-Then summarize in chat: the profile in two lines, counts of yes/no/unknown per level, and the top three gaps.
+Then summarize in chat: the report path, the profile in two lines, counts of yes/no/unknown per requirement level, with MUST `unknown`s counted separately, the top three gaps, and the offer of level 2 if any `unknown`s remain.
 
 ## Tone
 
-Meet the project where it is.
-A plain Git repository with a README, a lockfile, and a Makefile already satisfies much of STAMPED; say so when it does.
+Report what the project already does, per item, with evidence; do not assume a conventional layout satisfies an item.
 The report is for the project's authors to act on, not a verdict on them.
